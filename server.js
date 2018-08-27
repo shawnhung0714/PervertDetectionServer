@@ -8,14 +8,14 @@ import fs from "fs";
 const app = express();
 const server = https.createServer(
   {
-    key: fs.readFileSync("ssl/rootCA.key"),
-    cert: fs.readFileSync("ssl/rootCA.crt")
+    key: fs.readFileSync("ssl/server.key"),
+    cert: fs.readFileSync("ssl/server.crt")
   },
   app
 );
 // WARNING: app.listen(80) will NOT work here!
 
-const io = SocketIO.listen(server);
+const io = SocketIO.listen(server, { rejectUnauthorized: false });
 
 let clientCount = 0;
 
@@ -30,16 +30,16 @@ app.get("/", function(req, res) {
 io.on("connect", socket => {
   console.log("Peer connected:", socket.id);
   clientCount = clientCount + 1;
-  if(clientCount === 1) {
-      socket.emit("Open", {"memberID": socket.id});
-  }
-  else {
-      socket.broadcast.emit("NewMember", {"memberID": socket.id});
+  if (clientCount === 1) {
+    console.log("Open new room by:", socket.id);
+    socket.emit("Open", { memberID: socket.id });
+  } else {
+    console.log("Join:", socket.id);
+    socket.broadcast.emit("NewMember", { memberID: socket.id });
   }
 
   socket.on("icecandidate", data => {
     socket.broadcast.emit("icecandidate", data);
-    console.log("icecandidate:", data);
   });
 
   socket.on("offer", offer => {
@@ -50,7 +50,7 @@ io.on("connect", socket => {
     socket.broadcast.emit("answer", answer);
   });
 
-  socket.on('disconnect', function () {
+  socket.on("disconnect", function() {
     clientCount = Math.max(0, clientCount - 1);
   });
 });
